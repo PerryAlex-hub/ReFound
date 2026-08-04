@@ -58,7 +58,7 @@ Listings are shown publicly in deliberately non-specific form — enough for an 
 | Frontend | Next.js (App Router), TypeScript, Tailwind CSS |
 | Backend | Java 21, Spring Boot 3, Spring Security, Spring Data JPA |
 | Database | PostgreSQL, hosted on [Neon](https://neon.tech) |
-| Auth | JWT access + refresh tokens, campus-email restricted |
+| Auth | JWT access + refresh tokens, email-verified accounts |
 | Migrations | Flyway |
 | Build | Maven (backend), npm (frontend) |
 
@@ -123,7 +123,6 @@ The API starts on `http://localhost:8080`. Flyway applies migrations automatical
 | `JWT_EXPIRY_MINUTES` | Access token lifetime |
 | `MAIL_HOST` / `MAIL_PORT` | SMTP server for notifications |
 | `MAIL_USERNAME` / `MAIL_PASSWORD` | SMTP credentials |
-| `ALLOWED_EMAIL_DOMAIN` | Campus domain permitted to register |
 | `STORAGE_BUCKET_URL` | Object storage endpoint for item photos |
 
 ### 3. Frontend
@@ -148,6 +147,7 @@ The app starts on `http://localhost:3000`.
 A few choices that are easy to misread as arbitrary:
 
 - **Accounts are required to post.** The finder holds the item until handover, so they must be reachable and accountable. Anonymous posting breaks the return.
+- **One verified email, and it's a personal one.** Institutional inboxes are rarely read, and requiring one locks out any student whose account was never activated. A single verified personal address is the login identity and the notification channel. It must be verified before an account can claim or post a found item, because that address carries the contact release — an unchecked typo would send one student's phone number to a stranger. Matric number and phone number are unique per account, so a single person cannot hold several.
 - **Listings are vague on purpose.** A clear photo and full description of a phone lets anyone claim it convincingly. High-value categories hide their photos until a claim is approved.
 - **The verification question is one field, asked once.** It exists so that ownership review compares two independent pieces of evidence rather than relying on an administrator's judgement.
 - **Contact is released both ways.** The finder needs to reach the owner as much as the reverse; one-way release strands them.
