@@ -4,8 +4,6 @@
 
 ReFound replaces the scattered WhatsApp groups and physical notice boards that campuses rely on today with a single, searchable platform for reporting lost items, registering found ones, and returning property to its owner through a verified claim process.
 
-> **Status: in development.** The architecture and workflow are settled; implementation is underway. Setup instructions below describe the intended developer workflow and will firm up as the codebase lands.
-
 ---
 
 ## Why
@@ -154,30 +152,6 @@ A few choices that are easy to misread as arbitrary:
 - **The verification question is one field, asked once.** It exists so that ownership review compares two independent pieces of evidence rather than relying on an administrator's judgement.
 - **Contact is released both ways.** The finder needs to reach the owner as much as the reverse; one-way release strands them.
 - **Every state change is logged immutably.** Claims are contestable by nature, so the record of who approved what, when, and why has to be permanent.
-
----
-
-## Roadmap
-
-**MVP**
-- [ ] Authentication, email verification, role-based access
-- [ ] Lost and found item reporting with photo upload
-- [ ] Browse, search, and filter
-- [ ] Claim submission and administrator review
-- [ ] Contact release and handover confirmation
-- [ ] Audit log
-
-**V1**
-- [ ] Automatic match scoring and notifications
-- [ ] Campus location picker
-- [ ] Administrator dashboard and recovery statistics
-- [ ] Item expiry and lifecycle automation
-
-**Later**
-- [ ] Image similarity matching via embeddings and `pgvector`
-- [ ] QR code posters linking to the found-item form
-- [ ] WhatsApp notification channel
-- [ ] Public (unauthenticated) browse view
 
 ---
 
