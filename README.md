@@ -56,11 +56,11 @@ Listings are shown publicly in deliberately non-specific form — enough for an 
 | Layer | Technology |
 |---|---|
 | Frontend | Next.js (App Router), TypeScript, Tailwind CSS |
-| Backend | Java 21, Spring Boot 3, Spring Security, Spring Data JPA |
+| Backend | Java 21, Spring Boot 4, Spring Security, Spring Data JPA |
 | Database | PostgreSQL, hosted on [Neon](https://neon.tech) |
 | Auth | JWT access + refresh tokens, email-verified accounts |
 | Migrations | Flyway |
-| Build | Maven (backend), npm (frontend) |
+| Build | Maven Wrapper (backend), npm (frontend) |
 
 PostgreSQL is doing real work here, not just storage. Trigram similarity (`pg_trgm`) powers fuzzy description matching, full-text search backs the browse view, and `JSONB` holds category-specific attributes — a laptop has a serial number, a bag does not — without an unwieldy schema.
 
@@ -94,9 +94,10 @@ ReFound/
 
 ### Prerequisites
 
-- **Java 21+** and **Maven 3.9+**
+- **Java 21** (Temurin LTS recommended), with `JAVA_HOME` set
+- Maven is *not* required — the repo ships the Maven Wrapper (`./mvnw`)
 - **Node.js 20+**
-- A **Neon** project (free tier is sufficient) — or any PostgreSQL 15+ instance
+- A **Neon** project (free tier is sufficient) — or any PostgreSQL 16+ instance
 
 ### 1. Database
 

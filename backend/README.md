@@ -35,7 +35,7 @@ This document is the reference for anyone working on the backend. Read it before
 | Web | Spring Web MVC (REST, JSON) |
 | Security | Spring Security + JWT |
 | Persistence | Spring Data JPA / Hibernate |
-| Database | PostgreSQL 16 (Neon) |
+| Database | PostgreSQL 18 (Neon) |
 | Migrations | Flyway |
 | Validation | Jakarta Bean Validation |
 | Mail | Spring Mail (SMTP) |

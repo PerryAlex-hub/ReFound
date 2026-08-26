@@ -2,6 +2,12 @@ spring:
   application:
     name: refound
 
+  # Loads backend/.env as properties, so ${DATABASE_URL} and friends resolve.
+  # "optional:" means the app still starts if .env is absent (e.g. in CI,
+  # where the same names arrive as real environment variables instead).
+  config:
+    import: optional:file:.env[.properties]
+
   datasource:
     url: ${DATABASE_URL}
     username: ${DATABASE_USER}
