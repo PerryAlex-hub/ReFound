@@ -63,9 +63,10 @@ app:
     expiry-minutes: ${JWT_EXPIRY_MINUTES:15}
     refresh-expiry-days: ${REFRESH_TOKEN_EXPIRY_DAYS:30}
   storage:
-    bucket-url: ${STORAGE_BUCKET_URL:}
-    access-key: ${STORAGE_ACCESS_KEY:}
-    secret-key: ${STORAGE_SECRET_KEY:}
+    cloudinary:
+      cloud-name: ${CLOUDINARY_CLOUD_NAME:}
+      api-key: ${CLOUDINARY_API_KEY:}
+      api-secret: ${CLOUDINARY_API_SECRET:}
   matching:
     score-threshold: ${MATCH_SCORE_THRESHOLD:0.55}
     weights:

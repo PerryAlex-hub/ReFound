@@ -22,6 +22,9 @@ import net.refound.api.item.mapper.ItemMapper;
 import net.refound.api.item.repository.ItemPhotoRepository;
 import net.refound.api.item.repository.ItemRepository;
 import net.refound.api.item.repository.ItemSpecifications;
+import net.refound.api.storage.ImageValidator;
+import net.refound.api.storage.StorageService;
+import net.refound.api.storage.StoredFile;
 import net.refound.api.user.UserService;
 import net.refound.api.user.domain.User;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,6 +32,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -63,11 +67,16 @@ public class ItemService {
             Category.PHONE, Category.LAPTOP, Category.WALLET,
             Category.ID_CARD, Category.JEWELLERY);
 
+    /** Also enforced by the item_photo_position_valid check constraint. */
+    private static final int MAX_PHOTOS = 5;
+
     private final ItemRepository itemRepository;
     private final ItemPhotoRepository itemPhotoRepository;
     private final ItemMapper itemMapper;
     private final UserService userService;
     private final AuditService auditService;
+    private final StorageService storageService;
+    private final ImageValidator imageValidator;
 
     @Value("${app.items.expiry-days}")
     private long expiryDays;
@@ -197,6 +206,88 @@ public class ItemService {
         item.setStatus(ItemStatus.CANCELLED);
         auditService.record(item.getReporter(), "ITEM", item.getId(), "ITEM_CANCELLED");
         log.info("Item {} cancelled by {}", id, viewer.id());
+    }
+
+    // ------------------------------------------------------------------
+    // Photos
+    // ------------------------------------------------------------------
+
+    /**
+     * Attaches a photo to a report.
+     *
+     * <p>The file passes through the API rather than going straight to the
+     * storage provider, which is what makes these three checks possible: that
+     * the caller owns the item, that the item can still take photos, and that
+     * the bytes really are an image. A check performed in the browser is a
+     * check an attacker simply skips.
+     */
+    @Transactional
+    public ItemDetailResponse addPhoto(UUID itemId, MultipartFile file, AuthPrincipal viewer) {
+        Item item = getOwnedItem(itemId, viewer);
+
+        if (item.getStatus() != ItemStatus.OPEN) {
+            throw new BusinessRuleException(
+                    "Photos can only be added to an open report. This one is " + item.getStatus());
+        }
+
+        long existing = itemPhotoRepository.countByItemId(itemId);
+        if (existing >= MAX_PHOTOS) {
+            throw new BusinessRuleException("An item can have at most " + MAX_PHOTOS + " photos");
+        }
+
+        String format = imageValidator.validate(file);
+        StoredFile stored = storageService.upload(file, "refound/items/" + itemId);
+
+        ItemPhoto photo = new ItemPhoto();
+        photo.setUrl(stored.url());
+        photo.setPublicId(stored.publicId());
+        photo.setPosition(nextPosition(itemId));
+        item.addPhoto(photo);
+
+        itemRepository.save(item);
+        log.info("Added {} photo to item {} ({} of {})", format, itemId, existing + 1, MAX_PHOTOS);
+
+        return itemMapper.toDetail(item, viewer);
+    }
+
+    @Transactional
+    public void deletePhoto(UUID itemId, UUID photoId, AuthPrincipal viewer) {
+        Item item = getOwnedItem(itemId, viewer);
+
+        ItemPhoto photo = item.getPhotos().stream()
+                .filter(candidate -> candidate.getId().equals(photoId))
+                .findFirst()
+                .orElseThrow(() -> NotFoundException.of("Photo"));
+
+        String publicId = photo.getPublicId();
+        item.removePhoto(photo);
+        itemRepository.save(item);
+
+        // Removed from storage only after the database change is safely made.
+        // A failed delete leaves an orphan; a failed rollback would leave a row
+        // pointing at a file that no longer exists, which is worse.
+        storageService.delete(publicId);
+        log.info("Removed photo {} from item {}", photoId, itemId);
+    }
+
+    /**
+     * The lowest free slot in 0..4.
+     *
+     * <p>Not simply {@code count}, which would collide after a deletion: remove
+     * the photo at position 0 of five and the count is 4, but position 4 is
+     * still taken.
+     */
+    private int nextPosition(UUID itemId) {
+        Set<Integer> used = itemPhotoRepository.findByItemIdOrderByPositionAsc(itemId).stream()
+                .map(ItemPhoto::getPosition)
+                .collect(Collectors.toSet());
+
+        for (int position = 0; position < MAX_PHOTOS; position++) {
+            if (!used.contains(position)) {
+                return position;
+            }
+        }
+        throw new BusinessRuleException("An item can have at most " + MAX_PHOTOS + " photos");
     }
 
     // ------------------------------------------------------------------

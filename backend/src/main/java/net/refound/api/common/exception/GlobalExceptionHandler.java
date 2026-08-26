@@ -16,6 +16,8 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 
 import java.util.List;
@@ -166,6 +168,29 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ErrorResponse.of(
                 HttpStatus.NOT_FOUND.value(), "NOT_FOUND",
                 "No endpoint matches this request", request.getRequestURI()));
+    }
+
+    /** A multipart request arrived without the expected file part. */
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    public ResponseEntity<ErrorResponse> handleMissingPart(MissingServletRequestPartException ex,
+                                                           HttpServletRequest request) {
+        return ResponseEntity.badRequest().body(ErrorResponse.of(
+                HttpStatus.BAD_REQUEST.value(), "MISSING_FILE",
+                "No file was uploaded — send it as multipart form field '" + ex.getRequestPartName() + "'",
+                request.getRequestURI()));
+    }
+
+    /**
+     * The multipart limit in application.yml was exceeded. Thrown by the
+     * servlet container before the controller is reached, so it cannot be
+     * caught by validation on the endpoint itself.
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErrorResponse> handleUploadTooLarge(MaxUploadSizeExceededException ex,
+                                                              HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(ErrorResponse.of(
+                HttpStatus.PAYLOAD_TOO_LARGE.value(), "FILE_TOO_LARGE",
+                "Image must be 5MB or smaller", request.getRequestURI()));
     }
 
     /**
