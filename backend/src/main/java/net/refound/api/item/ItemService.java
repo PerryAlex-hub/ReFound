@@ -1,0 +1,277 @@
+package net.refound.api.item;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import net.refound.api.auth.AuthPrincipal;
+import net.refound.api.common.audit.AuditService;
+import net.refound.api.common.exception.BusinessRuleException;
+import net.refound.api.common.exception.ForbiddenException;
+import net.refound.api.common.exception.NotFoundException;
+import net.refound.api.common.response.PageResponse;
+import net.refound.api.item.domain.Category;
+import net.refound.api.item.domain.Item;
+import net.refound.api.item.domain.ItemPhoto;
+import net.refound.api.item.domain.ItemStatus;
+import net.refound.api.item.domain.ItemType;
+import net.refound.api.item.dto.CreateItemRequest;
+import net.refound.api.item.dto.ItemDetailResponse;
+import net.refound.api.item.dto.ItemSearchCriteria;
+import net.refound.api.item.dto.ItemSummaryResponse;
+import net.refound.api.item.dto.UpdateItemRequest;
+import net.refound.api.item.mapper.ItemMapper;
+import net.refound.api.item.repository.ItemPhotoRepository;
+import net.refound.api.item.repository.ItemRepository;
+import net.refound.api.item.repository.ItemSpecifications;
+import net.refound.api.user.UserService;
+import net.refound.api.user.domain.User;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.util.EnumSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+/**
+ * Lost and found reports.
+ *
+ * <p>Every method that returns data maps to a DTO <em>inside</em> the
+ * transaction. Returning entities would either explode on a lazy field
+ * ({@code open-in-view} is off) or serialise private columns straight to the
+ * client.
+ */
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class ItemService {
+
+    /**
+     * Categories whose photos stay hidden until a claim is approved.
+     *
+     * <p>A clear photo of a phone lets anyone describe it convincingly, which
+     * defeats the ownership check. A photo of an umbrella is the fastest way to
+     * identify it and carries no such risk.
+     */
+    private static final Set<Category> HIGH_VALUE = EnumSet.of(
+            Category.PHONE, Category.LAPTOP, Category.WALLET,
+            Category.ID_CARD, Category.JEWELLERY);
+
+    private final ItemRepository itemRepository;
+    private final ItemPhotoRepository itemPhotoRepository;
+    private final ItemMapper itemMapper;
+    private final UserService userService;
+    private final AuditService auditService;
+
+    @Value("${app.items.expiry-days}")
+    private long expiryDays;
+
+    // ------------------------------------------------------------------
+    // Create
+    // ------------------------------------------------------------------
+
+    @Transactional
+    public ItemDetailResponse create(AuthPrincipal viewer, CreateItemRequest request) {
+        validateVerificationAnswer(request.type(), request.verificationAnswer());
+        validateCoordinates(request.latitude(), request.longitude());
+
+        User reporter = userService.getById(viewer.id());
+
+        Item item = new Item();
+        item.setType(request.type());
+        item.setStatus(ItemStatus.OPEN);
+        item.setReporter(reporter);
+        item.setCategory(request.category());
+        item.setTitle(request.title().trim());
+        item.setDescription(trimOrNull(request.description()));
+        item.setLatitude(request.latitude());
+        item.setLongitude(request.longitude());
+        item.setLocationLabel(trimOrNull(request.locationLabel()));
+        item.setLocationDetail(trimOrNull(request.locationDetail()));
+        item.setOccurredOn(request.occurredOn());
+        item.setAttributes(request.attributes() == null ? Map.of() : request.attributes());
+        item.setVerificationAnswer(trimOrNull(request.verificationAnswer()));
+
+        // Decided by the server, never by the client.
+        item.setPhotosPublic(!HIGH_VALUE.contains(request.category()));
+        item.setExpiresAt(Instant.now().plus(Duration.ofDays(expiryDays)));
+
+        itemRepository.save(item);
+        auditService.record(reporter, "ITEM", item.getId(),
+                request.type() == ItemType.FOUND ? "ITEM_FOUND_REPORTED" : "ITEM_LOST_REPORTED",
+                Map.of("category", request.category().name()));
+
+        log.info("User {} reported {} item {}", viewer.id(), request.type(), item.getId());
+        return itemMapper.toDetail(item, viewer);
+    }
+
+    // ------------------------------------------------------------------
+    // Read
+    // ------------------------------------------------------------------
+
+    @Transactional(readOnly = true)
+    public PageResponse<ItemSummaryResponse> browse(ItemSearchCriteria criteria, Pageable pageable) {
+        Page<Item> page = itemRepository.findAll(ItemSpecifications.matching(criteria), pageable);
+
+        // Photos for the whole page in one query rather than one per row.
+        Map<UUID, List<ItemPhoto>> photosByItem = loadPhotos(page.getContent());
+
+        return PageResponse.from(page, item ->
+                itemMapper.toSummary(item, photosByItem.getOrDefault(item.getId(), List.of())));
+    }
+
+    @Transactional(readOnly = true)
+    public ItemDetailResponse getDetail(UUID id, AuthPrincipal viewer) {
+        Item item = getVisibleItem(id, viewer);
+        return itemMapper.toDetail(item, viewer);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<ItemSummaryResponse> listMine(AuthPrincipal viewer, Pageable pageable) {
+        Page<Item> page = itemRepository.findByReporterIdOrderByCreatedAtDesc(viewer.id(), pageable);
+        Map<UUID, List<ItemPhoto>> photosByItem = loadPhotos(page.getContent());
+
+        return PageResponse.from(page, item ->
+                itemMapper.toSummary(item, photosByItem.getOrDefault(item.getId(), List.of())));
+    }
+
+    // ------------------------------------------------------------------
+    // Update and withdraw
+    // ------------------------------------------------------------------
+
+    @Transactional
+    public ItemDetailResponse update(UUID id, UpdateItemRequest request, AuthPrincipal viewer) {
+        Item item = getOwnedItem(id, viewer);
+
+        if (item.getStatus() != ItemStatus.OPEN) {
+            throw new BusinessRuleException(
+                    "Only an open report can be edited. This one is " + item.getStatus());
+        }
+
+        // Null means "leave alone", so each field is applied only when present.
+        if (request.title() != null) item.setTitle(request.title().trim());
+        if (request.description() != null) item.setDescription(trimOrNull(request.description()));
+        if (request.locationLabel() != null) item.setLocationLabel(trimOrNull(request.locationLabel()));
+        if (request.locationDetail() != null) item.setLocationDetail(trimOrNull(request.locationDetail()));
+        if (request.occurredOn() != null) item.setOccurredOn(request.occurredOn());
+        if (request.attributes() != null) item.setAttributes(request.attributes());
+
+        if (request.latitude() != null || request.longitude() != null) {
+            validateCoordinates(request.latitude(), request.longitude());
+            item.setLatitude(request.latitude());
+            item.setLongitude(request.longitude());
+        }
+
+        if (request.verificationAnswer() != null) {
+            if (item.getType() != ItemType.FOUND) {
+                throw new BusinessRuleException("Only a found item has a verification answer");
+            }
+            item.setVerificationAnswer(request.verificationAnswer().trim());
+        }
+
+        auditService.record(item.getReporter(), "ITEM", item.getId(), "ITEM_UPDATED");
+
+        // No save() call: the entity is managed, so Hibernate's dirty checking
+        // issues the UPDATE at commit.
+        return itemMapper.toDetail(item, viewer);
+    }
+
+    /** Withdraws a report — "I found it in my bag after all". */
+    @Transactional
+    public void cancel(UUID id, AuthPrincipal viewer) {
+        Item item = getOwnedItem(id, viewer);
+
+        if (item.getStatus() == ItemStatus.RETURNED) {
+            throw new BusinessRuleException("This item has already been returned");
+        }
+        if (item.getStatus() == ItemStatus.CANCELLED) {
+            return;  // Idempotent: cancelling twice is not an error.
+        }
+
+        item.setStatus(ItemStatus.CANCELLED);
+        auditService.record(item.getReporter(), "ITEM", item.getId(), "ITEM_CANCELLED");
+        log.info("Item {} cancelled by {}", id, viewer.id());
+    }
+
+    // ------------------------------------------------------------------
+    // Shared lookups
+    // ------------------------------------------------------------------
+
+    /**
+     * Loads an item the viewer is allowed to see at all.
+     *
+     * <p>A hidden item is reported as missing rather than forbidden — telling a
+     * caller "this exists but was moderated" is information they have no claim
+     * to.
+     */
+    @Transactional(readOnly = true)
+    public Item getVisibleItem(UUID id, AuthPrincipal viewer) {
+        Item item = itemRepository.findById(id).orElseThrow(() -> NotFoundException.of("Item"));
+
+        boolean privileged = viewer != null
+                && (viewer.isAdmin() || item.getReporter().getId().equals(viewer.id()));
+
+        if (item.isHidden() && !privileged) {
+            throw NotFoundException.of("Item");
+        }
+        return item;
+    }
+
+    /** Loads an item the viewer may modify: their own, or any if admin. */
+    private Item getOwnedItem(UUID id, AuthPrincipal viewer) {
+        Item item = itemRepository.findById(id).orElseThrow(() -> NotFoundException.of("Item"));
+
+        boolean owns = item.getReporter().getId().equals(viewer.id());
+        if (!owns && !viewer.isAdmin()) {
+            // Forbidden rather than not-found: the caller reached a real item
+            // whose existence they could already confirm by browsing.
+            throw new ForbiddenException("This report belongs to someone else");
+        }
+        return item;
+    }
+
+    private Map<UUID, List<ItemPhoto>> loadPhotos(List<Item> items) {
+        if (items.isEmpty()) {
+            return Map.of();
+        }
+        List<UUID> ids = items.stream().map(Item::getId).toList();
+        return itemPhotoRepository.findByItemIdInOrderByPositionAsc(ids).stream()
+                .collect(Collectors.groupingBy(photo -> photo.getItem().getId()));
+    }
+
+    // ------------------------------------------------------------------
+    // Validation the annotations cannot express
+    // ------------------------------------------------------------------
+
+    private void validateVerificationAnswer(ItemType type, String answer) {
+        boolean provided = answer != null && !answer.isBlank();
+
+        if (type == ItemType.FOUND && !provided) {
+            throw new BusinessRuleException(
+                    "A found item needs a verification question: name something about it "
+                    + "only the owner would know");
+        }
+        if (type == ItemType.LOST && provided) {
+            throw new BusinessRuleException(
+                    "A lost report cannot carry a verification answer — the finder supplies it");
+        }
+    }
+
+    private void validateCoordinates(Object latitude, Object longitude) {
+        if ((latitude == null) != (longitude == null)) {
+            throw new BusinessRuleException("Latitude and longitude must be provided together");
+        }
+    }
+
+    private String trimOrNull(String value) {
+        if (value == null) return null;
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+}
