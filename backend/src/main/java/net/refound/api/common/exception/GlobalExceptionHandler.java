@@ -9,6 +9,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -121,6 +122,23 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ErrorResponse.of(
                 HttpStatus.CONFLICT.value(), "CONFLICT",
                 "The request conflicts with existing data", request.getRequestURI()));
+    }
+
+    /**
+     * A failed login or an invalid refresh token.
+     *
+     * <p>Reaches here rather than the security entry point because it is thrown
+     * inside a controller, not in the filter chain. The message stays generic —
+     * distinguishing "no such account" from "wrong password" would turn login
+     * into an account-enumeration oracle.
+     */
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<ErrorResponse> handleAuthentication(AuthenticationException ex,
+                                                              HttpServletRequest request) {
+        log.debug("Authentication failed at {}: {}", request.getRequestURI(), ex.getMessage());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ErrorResponse.of(
+                HttpStatus.UNAUTHORIZED.value(), "INVALID_CREDENTIALS",
+                ex.getMessage(), request.getRequestURI()));
     }
 
     /** Thrown by @PreAuthorize and by method-level security checks. */

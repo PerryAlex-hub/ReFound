@@ -1,6 +1,7 @@
 package net.refound.api.config;
 
 import lombok.RequiredArgsConstructor;
+import net.refound.api.auth.JwtAuthenticationFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -12,6 +13,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfigurationSource;
 
 /**
@@ -28,8 +30,10 @@ import org.springframework.web.cors.CorsConfigurationSource;
  *       this, and it is where real access bugs live.</li>
  * </ol>
  *
- * <p>The JWT filter is added in the auth slice; until then no request can
- * authenticate, so every protected path correctly answers 401.
+ * <p>{@link JwtAuthenticationFilter} runs ahead of the authorization rules and
+ * populates the security context from the bearer token. It never rejects a
+ * request itself — the rules below decide what an unauthenticated caller means
+ * for a given path.
  */
 @Configuration
 @EnableWebSecurity
@@ -40,6 +44,7 @@ public class SecurityConfig {
     private final RestAuthenticationEntryPoint authenticationEntryPoint;
     private final RestAccessDeniedHandler accessDeniedHandler;
     private final CorsConfigurationSource corsConfigurationSource;
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
     /** Paths reachable without a token. */
     private static final String[] PUBLIC_PATHS = {
@@ -79,6 +84,11 @@ public class SecurityConfig {
                         .requestMatchers(PUBLIC_PATHS).permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
+
+                // Runs before the username/password filter, so a valid bearer
+                // token has already populated the security context by the time
+                // the authorization rules above are evaluated.
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
 
                 .build();
     }
