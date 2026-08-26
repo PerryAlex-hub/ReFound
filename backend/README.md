@@ -31,17 +31,17 @@ This document is the reference for anyone working on the backend. Read it before
 | Concern | Choice |
 |---|---|
 | Language | Java 21 |
-| Framework | Spring Boot 3.x |
-| Web | Spring Web (REST, JSON) |
+| Framework | Spring Boot 4.1.x |
+| Web | Spring Web MVC (REST, JSON) |
 | Security | Spring Security + JWT |
 | Persistence | Spring Data JPA / Hibernate |
 | Database | PostgreSQL 16 (Neon) |
 | Migrations | Flyway |
 | Validation | Jakarta Bean Validation |
 | Mail | Spring Mail (SMTP) |
-| Build | Maven |
+| Build | Maven (via the bundled wrapper, `./mvnw`) |
 | Testing | JUnit 5, Mockito, Testcontainers |
-| API docs | springdoc-openapi (Swagger UI at `/swagger-ui.html`) |
+| API docs | springdoc-openapi 3.x (Swagger UI at `/swagger-ui.html`, dev profile only) |
 
 ---
 

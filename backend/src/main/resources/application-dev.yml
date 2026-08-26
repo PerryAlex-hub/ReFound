@@ -1,0 +1,15 @@
+logging:
+  level:
+    net.refound.api: DEBUG
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG
+
+spring:
+  jpa:
+    show-sql: true
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
