@@ -23,6 +23,7 @@ import net.refound.api.item.mapper.ItemMapper;
 import net.refound.api.item.repository.ItemPhotoRepository;
 import net.refound.api.item.repository.ItemRepository;
 import net.refound.api.item.repository.ItemSpecifications;
+import net.refound.api.matching.MatchingService;
 import net.refound.api.storage.ImageValidator;
 import net.refound.api.storage.StorageService;
 import net.refound.api.storage.StoredFile;
@@ -77,6 +78,7 @@ public class ItemService {
     private final UserService userService;
     private final AuditService auditService;
     private final ClaimRepository claimRepository;
+    private final MatchingService matchingService;
     private final StorageService storageService;
     private final ImageValidator imageValidator;
 
@@ -117,6 +119,10 @@ public class ItemService {
         auditService.record(reporter, "ITEM", item.getId(),
                 request.type() == ItemType.FOUND ? "ITEM_FOUND_REPORTED" : "ITEM_LOST_REPORTED",
                 Map.of("category", request.category().name()));
+
+        // Score against the opposite pool straight away, so an owner hears
+        // about a matching find within seconds of it being posted.
+        matchingService.scanFor(item);
 
         log.info("User {} reported {} item {}", viewer.id(), request.type(), item.getId());
         return itemMapper.toDetail(item, viewer);
@@ -195,6 +201,10 @@ public class ItemService {
         }
 
         auditService.record(item.getReporter(), "ITEM", item.getId(), "ITEM_UPDATED");
+
+        // Title, description and location all feed the score, so an edit can
+        // change which candidates qualify.
+        matchingService.scanFor(item);
 
         // No save() call: the entity is managed, so Hibernate's dirty checking
         // issues the UPDATE at commit.
