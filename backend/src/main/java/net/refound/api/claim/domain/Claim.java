@@ -85,6 +85,13 @@ public class Claim {
     @Column(name = "info_request")
     private String infoRequest;
 
+    /**
+     * The claimant's answer to that question. Separate from {@link #description}
+     * so the original statement of ownership survives for the reviewer.
+     */
+    @Column(name = "info_response")
+    private String infoResponse;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "reviewed_by")
     private User reviewedBy;

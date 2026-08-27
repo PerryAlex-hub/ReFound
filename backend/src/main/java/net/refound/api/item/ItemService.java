@@ -3,6 +3,7 @@ package net.refound.api.item;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.refound.api.auth.AuthPrincipal;
+import net.refound.api.claim.repository.ClaimRepository;
 import net.refound.api.common.audit.AuditService;
 import net.refound.api.common.exception.BusinessRuleException;
 import net.refound.api.common.exception.ForbiddenException;
@@ -75,6 +76,7 @@ public class ItemService {
     private final ItemMapper itemMapper;
     private final UserService userService;
     private final AuditService auditService;
+    private final ClaimRepository claimRepository;
     private final StorageService storageService;
     private final ImageValidator imageValidator;
 
@@ -138,6 +140,14 @@ public class ItemService {
     @Transactional(readOnly = true)
     public ItemDetailResponse getDetail(UUID id, AuthPrincipal viewer) {
         Item item = getVisibleItem(id, viewer);
+
+        // Someone whose claim was approved has been verified as the owner, so
+        // they see the photos and the finder's contact details — but never the
+        // verification answer, which they never needed and which would teach a
+        // future claimant exactly what to say.
+        if (claimRepository.hasApprovedClaim(id, viewer.id())) {
+            return itemMapper.toDetailForApprovedClaimant(item, viewer);
+        }
         return itemMapper.toDetail(item, viewer);
     }
 

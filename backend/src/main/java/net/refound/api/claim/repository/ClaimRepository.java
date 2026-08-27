@@ -41,5 +41,15 @@ public interface ClaimRepository extends JpaRepository<Claim, UUID> {
     boolean hasOpenClaim(@Param("foundItemId") UUID foundItemId,
                          @Param("claimantId") UUID claimantId);
 
+    /** Has this user been verified as the owner of this item? */
+    @Query("""
+            select count(c) > 0 from Claim c
+             where c.foundItem.id = :foundItemId
+               and c.claimant.id = :claimantId
+               and c.status = 'APPROVED'
+            """)
+    boolean hasApprovedClaim(@Param("foundItemId") UUID foundItemId,
+                             @Param("claimantId") UUID claimantId);
+
     long countByStatus(ClaimStatus status);
 }

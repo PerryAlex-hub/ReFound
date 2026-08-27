@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import net.refound.api.item.domain.Category;
 import net.refound.api.item.domain.ItemStatus;
 import net.refound.api.item.domain.ItemType;
+import net.refound.api.user.dto.ContactResponse;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -51,7 +52,7 @@ public record ItemDetailResponse(
 
         // --- restricted ---
 
-        ReporterContactResponse reporter,
+        ContactResponse reporter,
 
         String verificationAnswer
 ) {
