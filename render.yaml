@@ -1,8 +1,13 @@
 # Render blueprint for the ReFound API.
 #
-# Deploy by pointing Render at this repository — it reads this file and creates
-# the service. Everything marked `sync: false` must be filled in by hand in the
-# dashboard: those are secrets and never belong in source control.
+# Java is not one of Render's native runtimes (Node, Python, Ruby, Go, Rust and
+# Elixir are), so the service is deployed as a Docker container — which Render
+# documents as the way to run "virtually any language". backend/Dockerfile does
+# the build.
+#
+# To use this: Render dashboard -> New -> Blueprint -> pick this repository.
+# Everything marked `sync: false` is a secret and must be filled in by hand in
+# the dashboard; those values never belong in source control.
 #
 # The database is Neon rather than a Render Postgres instance, so there is no
 # database block here — the connection details arrive as environment variables.
@@ -10,34 +15,29 @@
 services:
   - type: web
     name: refound-api
-    runtime: java
+    runtime: docker
     plan: free
-    region: oregon           # move closer to your Neon region if you change it
+    region: oregon              # move closer to your Neon region if you change it
+
+    # Monorepo: build only the backend, and treat that folder as the Docker
+    # build context so the Dockerfile's relative COPY paths resolve.
     rootDir: backend
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
 
-    buildCommand: ./mvnw -B -DskipTests clean package
-    startCommand: java -jar target/api-0.0.1-SNAPSHOT.jar
-
-    # Render polls this to decide whether the instance is alive. It is public
-    # and reports status only, with no configuration details.
+    # Public, unauthenticated, status only. Render polls this to decide whether
+    # the instance is alive.
     healthCheckPath: /actuator/health
 
     envVars:
-      - key: JAVA_VERSION
-        value: "21"
-
-      # The free plan gives 512MB. Left to itself the JVM sizes its heap from
-      # the machine's total memory, not the container's limit, and gets killed
-      # under load. This caps it with room for metaspace and threads.
-      - key: JAVA_TOOL_OPTIONS
-        value: -Xmx400m -XX:MaxMetaspaceSize=128m
-
       - key: SPRING_PROFILES_ACTIVE
         value: prod
 
       # --- Database (Neon) ---
-      # Use the POOLED endpoint (the host containing "-pooler"): this app runs
-      # its own connection pool and the pooled endpoint is built for that.
+      # Use the POOLED endpoint (host contains "-pooler"): this app runs its own
+      # connection pool and the pooled endpoint is built for that.
+      # DATABASE_URL must be the JDBC form:
+      #   jdbc:postgresql://<host>/<db>?sslmode=require
       - key: DATABASE_URL
         sync: false
       - key: DATABASE_USER
@@ -57,7 +57,7 @@ services:
 
       # --- Frontend origin ---
       # Drives CORS. Must be the exact deployed frontend URL, scheme included,
-      # with no trailing slash. Requests from any other origin are blocked.
+      # no trailing slash. Requests from any other origin are blocked.
       - key: APP_BASE_URL
         sync: false
 

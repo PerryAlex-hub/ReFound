@@ -1,0 +1,15 @@
+# Keep the build context small and, more importantly, keep secrets out of it.
+# Anything listed here is never sent to the Docker daemon or baked into a layer.
+
+.env
+.env.*
+!.env.example
+
+target/
+*.log
+hs_err_pid*.log
+replay_pid*.log
+
+.idea/
+.vscode/
+*.iml
