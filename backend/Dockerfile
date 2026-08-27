@@ -18,6 +18,12 @@ WORKDIR /build
 # cached dependency download instead of pulling ~65MB of jars again.
 COPY .mvn/ .mvn/
 COPY mvnw pom.xml ./
+
+# Git on Windows does not record the executable bit, so mvnw arrives here
+# without it and the build fails with "Permission denied". Set it explicitly
+# rather than relying on how the file was checked out.
+RUN chmod +x mvnw
+
 RUN ./mvnw -B dependency:go-offline
 
 COPY src/ src/
