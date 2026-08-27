@@ -42,6 +42,15 @@ public class ItemPhoto {
     @Column(nullable = false)
     private String url;
 
+    /**
+     * The storage provider's identifier for this file.
+     *
+     * <p>The URL displays an image; only this can delete one. Without it,
+     * removing a photo would leave the file in the Cloudinary account forever.
+     */
+    @Column(name = "public_id", nullable = false)
+    private String publicId;
+
     /** Display order, 0-4. The database caps an item at five photos. */
     @Column(nullable = false)
     private int position = 0;
