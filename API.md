@@ -4,15 +4,50 @@ Everything the Next.js app needs to talk to the backend: endpoints, request and
 response shapes, types, and the rules that decide what a given user is allowed
 to see.
 
-**Base URL (development):** `http://localhost:8080`
-**Interactive docs (Swagger UI):** **http://localhost:8080/swagger-ui.html**
-**OpenAPI document:** `http://localhost:8080/v3/api-docs`
+## Where the API lives
 
-> Swagger is enabled on the `dev` profile only and is switched off in
-> production. Start the backend with
-> `./mvnw spring-boot:run '-Dspring-boot.run.arguments=--spring.profiles.active=dev'`
-> then use **Authorize** in the UI to paste an access token and try any endpoint
-> live.
+| | URL |
+|---|---|
+| **Deployed API** | **https://refound-api-doip.onrender.com** |
+| Health check | https://refound-api-doip.onrender.com/actuator/health |
+| Local development | `http://localhost:8080` |
+
+Point the frontend at the deployed URL:
+
+```env
+# frontend/.env.local
+NEXT_PUBLIC_API_BASE_URL=https://refound-api-doip.onrender.com/api
+```
+
+> **The free instance sleeps after 15 minutes idle.** The first request after
+> that takes roughly 50 seconds while it wakes, and may time out. It is not
+> broken — retry. Wake it before a demo.
+
+### Interactive docs (Swagger UI)
+
+**http://localhost:8080/swagger-ui.html** — run the backend locally on the `dev`
+profile:
+
+```bash
+cd backend
+./mvnw spring-boot:run '-Dspring-boot.run.arguments=--spring.profiles.active=dev'
+```
+
+Register through the UI, copy the `accessToken`, paste it into **Authorize**,
+and every endpoint becomes clickable with full request and response schemas.
+
+Swagger is **disabled on the deployed instance** — publishing a browsable
+catalogue of every endpoint helps anyone probing the service more than it helps
+us. To turn it on there anyway, set these two environment variables in Render
+(no code change or rebuild needed):
+
+```
+SPRINGDOC_API_DOCS_ENABLED   = true
+SPRINGDOC_SWAGGER_UI_ENABLED = true
+```
+
+It would then be served at
+`https://refound-api-doip.onrender.com/swagger-ui/index.html`.
 
 ---
 
