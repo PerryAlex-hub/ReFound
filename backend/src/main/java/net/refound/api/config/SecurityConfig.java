@@ -49,6 +49,11 @@ public class SecurityConfig {
     /** Paths reachable without a token. */
     private static final String[] PUBLIC_PATHS = {
             "/api/auth/**",
+            // The hosting platform polls this to decide whether the instance is
+            // alive; it cannot present a token. Only health is exposed, and it
+            // reports status without details — see management.* in application.yml.
+            "/actuator/health",
+            "/actuator/health/**",
             // Swagger UI and the OpenAPI document. Disabled on the prod
             // profile via springdoc.api-docs.enabled=false.
             "/swagger-ui.html",

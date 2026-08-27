@@ -50,7 +50,9 @@ spring:
       max-request-size: 30MB
 
 server:
-  port: 8080
+  # Hosting platforms assign the port at runtime and expect the app to bind to
+  # it. Defaults to 8080 locally.
+  port: ${PORT:8080}
   error:
     include-message: never
     include-stacktrace: never
@@ -81,3 +83,25 @@ app:
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
+
+# Health only. The other actuator endpoints (env, beans, mappings, heapdump)
+# would expose configuration and internals, so they stay off.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  health:
+    # Spring auto-registers an SMTP check because spring-boot-starter-mail is on
+    # the classpath. Email is not wired up yet, so that check fails and drags
+    # the overall status to DOWN — which a hosting platform reads as "restart
+    # this instance". Re-enable this when email is implemented.
+    mail:
+      enabled: false
+  endpoint:
+    health:
+      # "UP" plus which components are up — enough to diagnose a bad deploy,
+      # without publishing the database URL to anyone who asks.
+      show-details: never
+      probes:
+        enabled: true

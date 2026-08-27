@@ -1,0 +1,82 @@
+# Render blueprint for the ReFound API.
+#
+# Deploy by pointing Render at this repository — it reads this file and creates
+# the service. Everything marked `sync: false` must be filled in by hand in the
+# dashboard: those are secrets and never belong in source control.
+#
+# The database is Neon rather than a Render Postgres instance, so there is no
+# database block here — the connection details arrive as environment variables.
+
+services:
+  - type: web
+    name: refound-api
+    runtime: java
+    plan: free
+    region: oregon           # move closer to your Neon region if you change it
+    rootDir: backend
+
+    buildCommand: ./mvnw -B -DskipTests clean package
+    startCommand: java -jar target/api-0.0.1-SNAPSHOT.jar
+
+    # Render polls this to decide whether the instance is alive. It is public
+    # and reports status only, with no configuration details.
+    healthCheckPath: /actuator/health
+
+    envVars:
+      - key: JAVA_VERSION
+        value: "21"
+
+      # The free plan gives 512MB. Left to itself the JVM sizes its heap from
+      # the machine's total memory, not the container's limit, and gets killed
+      # under load. This caps it with room for metaspace and threads.
+      - key: JAVA_TOOL_OPTIONS
+        value: -Xmx400m -XX:MaxMetaspaceSize=128m
+
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+
+      # --- Database (Neon) ---
+      # Use the POOLED endpoint (the host containing "-pooler"): this app runs
+      # its own connection pool and the pooled endpoint is built for that.
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_USER
+        sync: false
+      - key: DATABASE_PASSWORD
+        sync: false
+
+      # --- Auth ---
+      # Generate a NEW one for production; never reuse the development secret.
+      #   openssl rand -base64 48
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_EXPIRY_MINUTES
+        value: "15"
+      - key: REFRESH_TOKEN_EXPIRY_DAYS
+        value: "30"
+
+      # --- Frontend origin ---
+      # Drives CORS. Must be the exact deployed frontend URL, scheme included,
+      # with no trailing slash. Requests from any other origin are blocked.
+      - key: APP_BASE_URL
+        sync: false
+
+      # --- Cloudinary ---
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+
+      # --- Tuning ---
+      - key: MATCH_SCORE_THRESHOLD
+        value: "0.55"
+      - key: ITEM_EXPIRY_DAYS
+        value: "90"
+
+      # --- Mail ---
+      # Not wired up yet. Left unset deliberately: the app starts without it,
+      # and notifications are stored in-app until email is implemented.
+      - key: MAIL_FROM
+        value: noreply@refound.app

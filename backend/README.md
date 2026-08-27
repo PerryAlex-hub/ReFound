@@ -578,3 +578,66 @@ Non-negotiable test coverage:
 **Auditing.** Any state change a human could later dispute writes an `AuditEvent` in the same transaction as the change.
 
 **Branches.** `feature/<area>-<description>`, e.g. `feature/claim-approval-flow`. Pull requests target `main` and require one review.
+
+---
+
+## Deployment
+
+The repo ships a Render blueprint (`render.yaml` at the project root). Any
+platform that runs a JAR works the same way — Railway, Fly, a plain VPS.
+
+### Build and run
+
+```bash
+./mvnw -B -DskipTests clean package     # produces target/api-0.0.1-SNAPSHOT.jar
+java -jar target/api-0.0.1-SNAPSHOT.jar
+```
+
+### What the host must provide
+
+| Variable | Notes |
+|---|---|
+| `PORT` | Supplied by the platform. The app binds to it; falls back to 8080. |
+| `SPRING_PROFILES_ACTIVE` | `prod` — turns Swagger off and quietens logging. |
+| `DATABASE_URL` / `_USER` / `_PASSWORD` | Neon. Use the **pooled** endpoint (host contains `-pooler`). |
+| `JWT_SECRET` | **Generate a fresh one for production.** `openssl rand -base64 48` |
+| `APP_BASE_URL` | The deployed frontend origin. Drives CORS — a wrong value blocks every browser request. |
+| `CLOUDINARY_*` | Photo upload. Absent means uploads fail cleanly; the app still starts. |
+| `JAVA_TOOL_OPTIONS` | On a 512MB instance: `-Xmx400m -XX:MaxMetaspaceSize=128m`. Left alone, the JVM sizes its heap from the machine's memory rather than the container's limit and gets killed under load. |
+
+`.env` is for local development only and is never deployed. On the host these
+are real environment variables.
+
+### Health check
+
+`GET /actuator/health` — public, unauthenticated, returns `{"status":"UP"}`.
+Point the platform's health check at it. Only `health` is exposed; `env`,
+`beans`, `heapdump` and the rest stay closed (401).
+
+### First run
+
+Flyway applies all migrations on startup, so an empty database builds itself.
+Create the first administrator directly in the database afterwards — there is
+no API path to make one, deliberately:
+
+```sql
+UPDATE app_user SET role = 'ADMIN' WHERE lower(email) = 'you@example.com';
+```
+
+That account can then promote others through `/api/admin/users/{id}/promote`.
+
+### Known limits
+
+- **The expiry sweep assumes a single instance.** Two would both sweep. Add a
+  lock before scaling out.
+- **No email**, so no password reset: a forgotten password needs a database
+  edit by whoever holds the Neon credentials.
+- **Free-tier instances sleep.** Render spins an idle free service down; the
+  first request afterwards takes roughly 50 seconds. Worth knowing before a
+  live demo.
+
+### Verified locally
+
+The production JAR was rehearsed with `prod` profile, a platform-style `PORT`,
+and no `.env` present: health `200 UP`, Swagger off, actuator locked down,
+registration and authenticated requests working, 347MB resident.

@@ -19,6 +19,7 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.List;
 import java.util.UUID;
@@ -191,6 +192,23 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(ErrorResponse.of(
                 HttpStatus.PAYLOAD_TOO_LARGE.value(), "FILE_TOO_LARGE",
                 "Image must be 5MB or smaller", request.getRequestURI()));
+    }
+
+    /**
+     * A request for a path that does not exist.
+     *
+     * <p>Spring raises this for unmatched static-resource paths. Without an
+     * explicit handler it falls through to the catch-all below and becomes a
+     * 500 with a full stack trace in the log — so every bot probing for
+     * {@code /wp-admin} or {@code /.env} would look like a server fault and
+     * bury the real errors.
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ErrorResponse> handleNoResource(NoResourceFoundException ex,
+                                                          HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ErrorResponse.of(
+                HttpStatus.NOT_FOUND.value(), "NOT_FOUND",
+                "No endpoint matches this request", request.getRequestURI()));
     }
 
     /**
