@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import net.refound.api.admin.dto.ModerationRequest;
 import net.refound.api.auth.AuthPrincipal;
 import net.refound.api.common.response.PageResponse;
 import net.refound.api.item.domain.Category;
@@ -145,6 +146,20 @@ public class ItemController {
             @PathVariable UUID photoId) {
 
         itemService.deletePhoto(id, photoId, principal);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{id}/report-abuse")
+    @Operation(summary = "Flag an item for moderation",
+            description = "Queues it for an administrator to review. Nothing is hidden "
+                    + "automatically — otherwise a few malicious flags could silence a "
+                    + "genuine report.")
+    public ResponseEntity<Void> reportAbuse(
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @PathVariable UUID id,
+            @Valid @RequestBody ModerationRequest request) {
+
+        itemService.reportAbuse(id, request.reason(), principal);
         return ResponseEntity.noContent().build();
     }
 

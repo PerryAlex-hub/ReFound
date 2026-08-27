@@ -90,5 +90,21 @@ public interface ItemRepository extends JpaRepository<Item, UUID>,
         double getTextSimilarity();
     }
 
+    /** Open reports past their expiry date, for the daily sweep. */
+    @Query("select i from Item i where i.status = 'OPEN' and i.expiresAt < :now")
+    List<Item> findExpiredOpenItems(@Param("now") Instant now);
+
+    /** Open reports nearing expiry whose reporter has not been warned yet. */
+    @Query("""
+            select i from Item i
+             where i.status = 'OPEN'
+               and i.expiryWarnedAt is null
+               and i.expiresAt between :now and :warnBefore
+            """)
+    List<Item> findItemsNeedingExpiryWarning(@Param("now") Instant now,
+                                             @Param("warnBefore") Instant warnBefore);
+
+    long countByType(ItemType type);
+
     long countByStatus(ItemStatus status);
 }

@@ -228,6 +228,24 @@ public class ItemService {
         log.info("Item {} cancelled by {}", id, viewer.id());
     }
 
+    /**
+     * Flags an item for a moderator to look at.
+     *
+     * <p>Deliberately does not hide anything by itself. If reports auto-hid
+     * items, anyone could silence a genuine report by flagging it a few times
+     * — a moderation queue needs a human at the end of it.
+     */
+    @Transactional
+    public void reportAbuse(UUID itemId, String reason, AuthPrincipal viewer) {
+        Item item = getVisibleItem(itemId, viewer);
+        User reporter = userService.getById(viewer.id());
+
+        auditService.record(reporter, "ITEM", item.getId(), "ITEM_REPORTED_ABUSE",
+                Map.of("reason", reason));
+
+        log.warn("Item {} flagged by user {}: {}", itemId, viewer.id(), reason);
+    }
+
     // ------------------------------------------------------------------
     // Photos
     // ------------------------------------------------------------------

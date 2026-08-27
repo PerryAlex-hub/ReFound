@@ -1,6 +1,7 @@
 package net.refound.api.matching.repository;
 
 import net.refound.api.matching.domain.ItemMatch;
+import net.refound.api.matching.domain.MatchStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -10,6 +11,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface ItemMatchRepository extends JpaRepository<ItemMatch, UUID> {
+
+    long countByStatus(MatchStatus status);
 
     /** A pair is scored once; a rescore updates the existing row. */
     Optional<ItemMatch> findByLostItemIdAndFoundItemId(UUID lostItemId, UUID foundItemId);
