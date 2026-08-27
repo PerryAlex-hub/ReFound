@@ -3,6 +3,7 @@ package net.refound.api.item;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.refound.api.auth.AuthPrincipal;
+import net.refound.api.claim.repository.ClaimRepository;
 import net.refound.api.common.audit.AuditService;
 import net.refound.api.common.exception.BusinessRuleException;
 import net.refound.api.common.exception.ForbiddenException;
@@ -22,6 +23,7 @@ import net.refound.api.item.mapper.ItemMapper;
 import net.refound.api.item.repository.ItemPhotoRepository;
 import net.refound.api.item.repository.ItemRepository;
 import net.refound.api.item.repository.ItemSpecifications;
+import net.refound.api.matching.MatchingService;
 import net.refound.api.storage.ImageValidator;
 import net.refound.api.storage.StorageService;
 import net.refound.api.storage.StoredFile;
@@ -75,6 +77,8 @@ public class ItemService {
     private final ItemMapper itemMapper;
     private final UserService userService;
     private final AuditService auditService;
+    private final ClaimRepository claimRepository;
+    private final MatchingService matchingService;
     private final StorageService storageService;
     private final ImageValidator imageValidator;
 
@@ -116,6 +120,10 @@ public class ItemService {
                 request.type() == ItemType.FOUND ? "ITEM_FOUND_REPORTED" : "ITEM_LOST_REPORTED",
                 Map.of("category", request.category().name()));
 
+        // Score against the opposite pool straight away, so an owner hears
+        // about a matching find within seconds of it being posted.
+        matchingService.scanFor(item);
+
         log.info("User {} reported {} item {}", viewer.id(), request.type(), item.getId());
         return itemMapper.toDetail(item, viewer);
     }
@@ -138,6 +146,14 @@ public class ItemService {
     @Transactional(readOnly = true)
     public ItemDetailResponse getDetail(UUID id, AuthPrincipal viewer) {
         Item item = getVisibleItem(id, viewer);
+
+        // Someone whose claim was approved has been verified as the owner, so
+        // they see the photos and the finder's contact details — but never the
+        // verification answer, which they never needed and which would teach a
+        // future claimant exactly what to say.
+        if (claimRepository.hasApprovedClaim(id, viewer.id())) {
+            return itemMapper.toDetailForApprovedClaimant(item, viewer);
+        }
         return itemMapper.toDetail(item, viewer);
     }
 
@@ -186,6 +202,10 @@ public class ItemService {
 
         auditService.record(item.getReporter(), "ITEM", item.getId(), "ITEM_UPDATED");
 
+        // Title, description and location all feed the score, so an edit can
+        // change which candidates qualify.
+        matchingService.scanFor(item);
+
         // No save() call: the entity is managed, so Hibernate's dirty checking
         // issues the UPDATE at commit.
         return itemMapper.toDetail(item, viewer);
@@ -206,6 +226,24 @@ public class ItemService {
         item.setStatus(ItemStatus.CANCELLED);
         auditService.record(item.getReporter(), "ITEM", item.getId(), "ITEM_CANCELLED");
         log.info("Item {} cancelled by {}", id, viewer.id());
+    }
+
+    /**
+     * Flags an item for a moderator to look at.
+     *
+     * <p>Deliberately does not hide anything by itself. If reports auto-hid
+     * items, anyone could silence a genuine report by flagging it a few times
+     * — a moderation queue needs a human at the end of it.
+     */
+    @Transactional
+    public void reportAbuse(UUID itemId, String reason, AuthPrincipal viewer) {
+        Item item = getVisibleItem(itemId, viewer);
+        User reporter = userService.getById(viewer.id());
+
+        auditService.record(reporter, "ITEM", item.getId(), "ITEM_REPORTED_ABUSE",
+                Map.of("reason", reason));
+
+        log.warn("Item {} flagged by user {}: {}", itemId, viewer.id(), reason);
     }
 
     // ------------------------------------------------------------------

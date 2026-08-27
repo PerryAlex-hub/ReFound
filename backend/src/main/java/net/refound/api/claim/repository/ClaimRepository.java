@@ -41,5 +41,29 @@ public interface ClaimRepository extends JpaRepository<Claim, UUID> {
     boolean hasOpenClaim(@Param("foundItemId") UUID foundItemId,
                          @Param("claimantId") UUID claimantId);
 
+    /** Has this user been verified as the owner of this item? */
+    @Query("""
+            select count(c) > 0 from Claim c
+             where c.foundItem.id = :foundItemId
+               and c.claimant.id = :claimantId
+               and c.status = 'APPROVED'
+            """)
+    boolean hasApprovedClaim(@Param("foundItemId") UUID foundItemId,
+                             @Param("claimantId") UUID claimantId);
+
+    /**
+     * Median hours between a claim being filed and decided.
+     *
+     * <p>Native because {@code percentile_cont} is a Postgres ordered-set
+     * aggregate with no JPQL equivalent. Null when nothing has been decided yet.
+     */
+    @Query(value = """
+            select percentile_cont(0.5) within group (
+                       order by extract(epoch from (decided_at - created_at)) / 3600.0)
+              from claim
+             where decided_at is not null
+            """, nativeQuery = true)
+    Double findMedianReviewHours();
+
     long countByStatus(ClaimStatus status);
 }

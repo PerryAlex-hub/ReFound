@@ -1,6 +1,7 @@
 package net.refound.api.user.mapper;
 
 import net.refound.api.user.domain.User;
+import net.refound.api.user.dto.ContactResponse;
 import net.refound.api.user.dto.UserResponse;
 import org.springframework.stereotype.Component;
 
@@ -26,6 +27,21 @@ public class UserMapper {
                 user.getRole(),
                 user.isEmailVerified(),
                 user.getCreatedAt()
+        );
+    }
+
+    /**
+     * Contact details for release to a verified counterpart.
+     *
+     * <p>Callers are responsible for having established that the recipient is
+     * entitled to these — see {@link ContactResponse}.
+     */
+    public ContactResponse toContact(User user) {
+        return new ContactResponse(
+                user.getId(),
+                user.getFullName(),
+                user.getEmail(),
+                user.getPhoneNumber()
         );
     }
 }

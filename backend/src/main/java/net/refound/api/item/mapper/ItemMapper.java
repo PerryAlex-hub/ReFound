@@ -6,7 +6,7 @@ import net.refound.api.item.domain.ItemPhoto;
 import net.refound.api.item.dto.ItemDetailResponse;
 import net.refound.api.item.dto.ItemPhotoResponse;
 import net.refound.api.item.dto.ItemSummaryResponse;
-import net.refound.api.item.dto.ReporterContactResponse;
+import net.refound.api.user.dto.ContactResponse;
 import net.refound.api.user.domain.User;
 import org.springframework.stereotype.Component;
 
@@ -125,8 +125,8 @@ public class ItemMapper {
         return new ItemPhotoResponse(photo.getId(), photo.getUrl(), photo.getPosition());
     }
 
-    private ReporterContactResponse toReporterContact(User reporter) {
-        return new ReporterContactResponse(
+    private ContactResponse toReporterContact(User reporter) {
+        return new ContactResponse(
                 reporter.getId(),
                 reporter.getFullName(),
                 reporter.getEmail(),
