@@ -765,7 +765,7 @@ interface AdminClaimReviewResponse {
   itemLocationLabel: string | null;
   itemPhotoUrls: string[];
 
-  // ★ The comparison the decision rests on
+
   finderVerificationAnswer: string;   // the private detail the finder recorded
   claimantDescription: string;        // what the claimant says about the item
   claimantLostContext: string | null;
