@@ -7,6 +7,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -16,22 +17,43 @@ import java.util.List;
  * {@code localhost:8080} unless the API says otherwise — different ports are
  * different origins.
  *
- * <p>Origins come from {@code app.base-url}, so development and production
- * differ by an environment variable rather than a code change. Never widen this
- * to {@code "*"}: it would let any website on the internet call the API with a
- * user's token.
+ * <p>Origins come from {@code app.base-url} — a comma-separated list — so
+ * development and production differ by an environment variable rather than a
+ * code change. Never widen this to {@code "*"}: it would let any website on the
+ * internet call the API with a user's token.
  */
 @Configuration
 public class CorsConfig {
 
+    /**
+     * One or more allowed origins, comma-separated.
+     *
+     * <p>A list rather than a single value because there is always more than
+     * one: the deployed frontend, and localhost while the frontend is being
+     * built against the deployed API. Requiring a choice between them means
+     * somebody keeps flipping an environment variable back and forth.
+     *
+     * <pre>
+     * APP_BASE_URL=https://refound-silk.vercel.app,http://localhost:3000
+     * </pre>
+     */
     @Value("${app.base-url}")
-    private String frontendOrigin;
+    private String allowedOrigins;
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        configuration.setAllowedOrigins(List.of(frontendOrigin));
+        List<String> origins = Arrays.stream(allowedOrigins.split(","))
+                .map(String::trim)
+                .filter(origin -> !origin.isEmpty())
+                .toList();
+
+        // Patterns rather than plain origins: same behaviour for exact values,
+        // but it also permits a wildcard entry such as
+        // https://refound-*.vercel.app for Vercel preview deployments, whose
+        // hostname changes with every branch.
+        configuration.setAllowedOriginPatterns(origins);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept"));
 
