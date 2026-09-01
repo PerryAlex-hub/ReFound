@@ -6,12 +6,8 @@ import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.info.License;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
-import io.swagger.v3.oas.models.servers.Server;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-
-import java.util.List;
 
 /**
  * Swagger UI, served at {@code /swagger-ui.html} on the dev profile.
@@ -25,9 +21,6 @@ import java.util.List;
  */
 @Configuration
 public class OpenApiConfig {
-
-    @Value("${server.port:8080}")
-    private String port;
 
     @Bean
     public OpenAPI refoundOpenApi() {
@@ -46,9 +39,11 @@ public class OpenApiConfig {
                         .version("v1")
                         .license(new License().name("MIT")))
 
-                .servers(List.of(new Server()
-                        .url("http://localhost:" + port)
-                        .description("Local development")))
+                // No .servers(...) on purpose. Declaring one pins every "Try it
+                // out" request to that URL — and a hardcoded host is wrong the
+                // moment the app is deployed. Left unset, springdoc derives the
+                // server from the request the document was fetched with, so the
+                // UI always calls the host it was loaded from.
 
                 // Declares the scheme...
                 .components(new Components().addSecuritySchemes(bearerScheme,
