@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { CheckCircle, Info, XCircle, X } from 'lucide-react';
+import { Info, XCircle, X } from 'lucide-react';
+import { SuccessMorphIcon } from './SuccessMorphIcon';
 
 interface Toast {
   id: string;
@@ -49,7 +50,7 @@ export function ToastProvider() {
           key={t.id}
           className="pointer-events-auto flex items-start gap-3 bg-white rounded-2xl shadow-lg border border-gray-100 p-4 animate-slide-in"
         >
-          {t.type === 'success' && <CheckCircle size={18} className="text-green-500 mt-0.5 shrink-0" />}
+          {t.type === 'success' && <SuccessMorphIcon />}
           {t.type === 'error' && <XCircle size={18} className="text-red-500 mt-0.5 shrink-0" />}
           {t.type === 'info' && <Info size={18} className="text-[#F97316] mt-0.5 shrink-0" />}
           <p className="text-sm text-gray-800 flex-1">{t.message}</p>

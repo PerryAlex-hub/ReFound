@@ -2,7 +2,7 @@
 
 import { use } from 'react';
 import { useRouter } from 'next/navigation';
-
+import Image from 'next/image';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -86,9 +86,9 @@ export default function NewClaimPage({ searchParams }: { searchParams: Promise<{
           </div>
         ) : foundItem ? (
           <div className="bg-white rounded-2xl p-4 flex gap-3 border border-gray-100">
-            <div className="w-16 h-16 rounded-xl overflow-hidden bg-gray-100 shrink-0 flex items-center justify-center">
+            <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-gray-100 shrink-0 flex items-center justify-center">
               {foundItem.photos[0] ? (
-                <img src={foundItem.photos[0].url} alt="" className="w-full h-full object-cover" />
+                <Image src={foundItem.photos[0].url} alt="" fill sizes="64px" className="object-cover" />
               ) : (
                 <CategoryLucideIcon category={foundItem.category} size={24} className="text-gray-400" />
               )}

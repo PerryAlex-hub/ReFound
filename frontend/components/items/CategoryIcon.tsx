@@ -24,6 +24,7 @@ export function CategoryPicker({
 }) {
   return (
     <Select
+      name="category"
       label="Category"
       placeholder="Select a category"
       value={value}

@@ -3,6 +3,7 @@
 import { use, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { ArrowLeft, Shield, Phone, Mail, CheckCircle, XCircle, HelpCircle } from 'lucide-react';
 import useSWR, { mutate } from 'swr';
 import { getAdminClaim, approveClaim, rejectClaim, requestClaimInfo } from '@/lib/api/admin';
@@ -123,7 +124,9 @@ export default function AdminClaimReviewPage({ params }: { params: Promise<{ id:
           <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Found Item</p>
           <div className="flex gap-3 items-center">
             {claim.itemPhotoUrls[0] ? (
-              <img src={claim.itemPhotoUrls[0]} alt="" className="w-16 h-16 rounded-xl object-cover shrink-0" />
+              <div className="relative w-16 h-16 rounded-xl overflow-hidden shrink-0">
+                <Image src={claim.itemPhotoUrls[0]} alt="" fill sizes="64px" className="object-cover" />
+              </div>
             ) : (
               <div className="w-16 h-16 rounded-xl bg-gray-100 flex items-center justify-center shrink-0">
                 <CategoryLucideIcon category={claim.itemCategory} size={24} className="text-gray-400" />
@@ -175,7 +178,9 @@ export default function AdminClaimReviewPage({ params }: { params: Promise<{ id:
             {claim.itemPhotoUrls[0] && (
               <div className="mb-4">
                 <p className="text-sm font-bold text-[#111827] mb-2">Finder&apos;s Evidence Photo</p>
-                <img src={claim.itemPhotoUrls[0]} alt="" className="w-full h-64 rounded-xl object-cover" />
+                <div className="relative w-full h-64 rounded-xl overflow-hidden">
+                  <Image src={claim.itemPhotoUrls[0]} alt="" fill sizes="100vw" className="object-cover" />
+                </div>
               </div>
             )}
 

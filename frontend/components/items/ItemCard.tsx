@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { MapPin, ChevronRight } from 'lucide-react';
 import { ItemSummaryResponse } from '@/lib/types';
 import { ItemTypeBadge, ItemStatusBadge } from '@/components/ui/Badge';
@@ -15,14 +16,9 @@ export function ItemCard({ item, showType = true, showStatus = false }: ItemCard
   return (
     <Link href={`/items/${item.id}`} className="block">
       <div className="bg-white rounded-2xl p-4 border border-gray-100 flex items-center gap-3 hover:shadow-sm transition-shadow active:scale-[0.99] transition-transform">
-        <div className="w-16 h-16 rounded-xl overflow-hidden bg-gray-100 shrink-0 flex items-center justify-center">
+        <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-gray-100 shrink-0 flex items-center justify-center">
           {item.thumbnailUrl ? (
-            <img
-              src={item.thumbnailUrl}
-              alt={item.title}
-              className="w-full h-full object-cover"
-              loading="lazy"
-            />
+            <Image src={item.thumbnailUrl} alt={item.title} fill sizes="64px" className="object-cover" />
           ) : item.hasPhotos ? (
             <div className="flex flex-col items-center gap-1 text-gray-400">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

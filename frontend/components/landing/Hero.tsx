@@ -1,24 +1,35 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Zap } from 'lucide-react';
 import gsap from 'gsap';
+import { SplitText } from 'gsap/SplitText';
 import Image from 'next/image';
-// import { HeroIllustration } from './HeroIllustration';
+
+gsap.registerPlugin(SplitText);
 
 /** Two-column marketing hero: pill badge + headline + CTAs on the left, isometric illustration on the right. */
 export function Hero() {
+  const headingRef = useRef<HTMLHeadingElement>(null);
+
   useEffect(() => {
+    // The single signature text moment on this page — everything else fades as
+    // a block, this cascades word by word, so it doesn't get diluted by reuse.
+    const split = new SplitText(headingRef.current, { type: 'words' });
+
     const ctx = gsap.context(() => {
       gsap.from('.hero-badge', { opacity: 0, y: -10, duration: 0.5, ease: 'back.out(1.7)', delay: 0.1 });
-      gsap.from('.hero-heading', { opacity: 0, y: 24, duration: 0.7, ease: 'power3.out', delay: 0.2 });
+      gsap.from(split.words, { opacity: 0, y: 24, duration: 0.6, stagger: 0.05, ease: 'power3.out', delay: 0.2 });
       gsap.from('.hero-copy', { opacity: 0, y: 16, duration: 0.6, ease: 'power3.out', delay: 0.4 });
       gsap.from('.hero-ctas', { opacity: 0, y: 16, duration: 0.5, ease: 'power2.out', delay: 0.55 });
       gsap.from('.hero-illustration', { opacity: 0, x: 32, scale: 0.96, duration: 0.8, ease: 'power3.out', delay: 0.3 });
     });
 
-    return () => ctx.revert();
+    return () => {
+      ctx.revert();
+      split.revert();
+    };
   }, []);
 
   return (
@@ -30,7 +41,7 @@ export function Hero() {
             24/7 Smart Campus Recovery
           </div>
 
-          <h1 className="hero-heading text-5xl md:text-6xl font-extrabold leading-[1.05] tracking-tight text-[#111827] mb-6">
+          <h1 ref={headingRef} className="text-5xl md:text-6xl font-extrabold leading-[1.05] tracking-tight text-[#111827] mb-6">
             Reuniting Campus
             <br />
             with What Matters
@@ -59,13 +70,12 @@ export function Hero() {
         </div>
 
         <div className="hero-illustration">
-          <Image
-            src="/hero-illustration.png"
+          <Image 
+            src="/img/hero-illustration.png"
             alt="Hero Illustration"
-            width={600} 
+            width={600}
             height={400}
           />
-          {/* <HeroIllustration /> */}
         </div>
       </div>
     </section>

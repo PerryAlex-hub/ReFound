@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Copy, Check, CheckCircle2, Circle } from 'lucide-react';
 import { mutate } from 'swr';
 import { Button } from '@/components/ui/Button';
 import { toast } from '@/components/ui/Toast';
+import { fireConfetti } from '@/components/ui/ConfettiBurst';
 import { confirmHandover } from '@/lib/api/claims';
 import { ClaimDetailResponse } from '@/lib/types';
 import { CategoryLucideIcon } from '@/components/items/CategoryIcon';
@@ -45,24 +46,32 @@ interface ApprovedClaimCardProps {
 /** Full "approved" claim detail: item summary, released contact info, and handover confirmation. */
 export function ApprovedClaimCard({ claim }: ApprovedClaimCardProps) {
   const [confirming, setConfirming] = useState(false);
+  const confirmBtnRef = useRef<HTMLDivElement>(null);
+
+  const isClaimant = claim.viewerRole === 'CLAIMANT';
+  const youConfirmed = isClaimant ? claim.claimantConfirmed : claim.finderConfirmed;
+  const counterpartConfirmed = isClaimant ? claim.finderConfirmed : claim.claimantConfirmed;
+  const counterpartName = claim.counterpartContact?.fullName ?? (isClaimant ? 'the finder' : 'the claimant');
 
   const handleConfirm = async () => {
+    // If the other party already confirmed, this click is the one that
+    // completes the return — the single moment in the app worth celebrating.
+    const completesReturn = counterpartConfirmed;
     setConfirming(true);
     try {
       await confirmHandover(claim.id);
       await mutate(['claim', claim.id]);
       toast('Handover confirmed!', 'success');
+      if (completesReturn && confirmBtnRef.current) {
+        const rect = confirmBtnRef.current.getBoundingClientRect();
+        fireConfetti({ x: rect.left + rect.width / 2, y: rect.top });
+      }
     } catch {
       toast('Failed to confirm handover.', 'error');
     } finally {
       setConfirming(false);
     }
   };
-
-  const isClaimant = claim.viewerRole === 'CLAIMANT';
-  const youConfirmed = isClaimant ? claim.claimantConfirmed : claim.finderConfirmed;
-  const counterpartConfirmed = isClaimant ? claim.finderConfirmed : claim.claimantConfirmed;
-  const counterpartName = claim.counterpartContact?.fullName ?? (isClaimant ? 'the finder' : 'the claimant');
 
   return (
     <div className="flex flex-col gap-4">
@@ -120,7 +129,7 @@ export function ApprovedClaimCard({ claim }: ApprovedClaimCardProps) {
       </div>
 
       {!youConfirmed && (
-        <div>
+        <div ref={confirmBtnRef}>
           <Button fullWidth onClick={handleConfirm} loading={confirming}>
             Confirm Handover
           </Button>

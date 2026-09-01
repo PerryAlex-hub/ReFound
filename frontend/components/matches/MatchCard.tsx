@@ -2,11 +2,15 @@
 
 import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { MatchResponse } from '@/lib/types';
 import { formatMatchPercent, deriveBreakdownTags } from '@/lib/utils';
 import { CategoryLucideIcon } from '@/components/items/CategoryIcon';
 import { Button } from '@/components/ui/Button';
 import gsap from 'gsap';
+import { ScrambleTextPlugin } from 'gsap/ScrambleTextPlugin';
+
+gsap.registerPlugin(ScrambleTextPlugin);
 
 interface MatchCardProps {
   match: MatchResponse;
@@ -17,6 +21,7 @@ interface MatchCardProps {
 export function MatchCard({ match, onDismiss, dismissing }: MatchCardProps) {
   const router = useRouter();
   const barRef = useRef<HTMLDivElement>(null);
+  const pctRef = useRef<HTMLSpanElement>(null);
   const pct = formatMatchPercent(match.score);
   const tags = deriveBreakdownTags(match.breakdown);
   const item = match.candidate;
@@ -25,6 +30,16 @@ export function MatchCard({ match, onDismiss, dismissing }: MatchCardProps) {
     if (!barRef.current) return;
     const ctx = gsap.context(() => {
       gsap.fromTo(barRef.current, { width: '0%' }, { width: `${pct}%`, duration: 1, ease: 'power2.out', delay: 0.2 });
+
+      // The algorithm "computing" a score before it settles — a scramble reads
+      // as more thematically fitting here than a plain fade or count-up.
+      if (pctRef.current) {
+        gsap.to(pctRef.current, {
+          duration: 0.8,
+          delay: 0.1,
+          scrambleText: { text: `${pct}% Match`, chars: '0123456789', speed: 0.4 },
+        });
+      }
     });
     return () => ctx.revert();
   }, [pct]);
@@ -35,15 +50,15 @@ export function MatchCard({ match, onDismiss, dismissing }: MatchCardProps) {
   return (
     <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
       <div className="flex gap-3 mb-3">
-        <div className="w-16 h-16 rounded-xl bg-gray-100 shrink-0 flex items-center justify-center overflow-hidden">
+        <div className="relative w-16 h-16 rounded-xl bg-gray-100 shrink-0 flex items-center justify-center overflow-hidden">
           {item.thumbnailUrl ? (
-            <img src={item.thumbnailUrl} alt={item.title} className="w-full h-full object-cover" />
+            <Image src={item.thumbnailUrl} alt={item.title} fill sizes="64px" className="object-cover" />
           ) : (
             <CategoryLucideIcon category={item.category} size={24} className="text-gray-400" />
           )}
         </div>
         <div className="flex-1 min-w-0">
-          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold mb-1 ${matchColor}`}>
+          <span ref={pctRef} className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold mb-1 ${matchColor}`}>
             {pct}% Match
           </span>
           <p className="font-bold text-sm text-[#111827] truncate">{item.title}</p>

@@ -102,6 +102,9 @@ apiClient.interceptors.response.use(
         processQueue(refreshError, null);
         localStorage.removeItem('rf_access');
         localStorage.removeItem('rf_refresh');
+        // Hard redirect, not router.push — a stale SWR cache or AuthProvider state
+        // surviving a revoked session is worse than the extra reload.
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination
         if (typeof window !== 'undefined') window.location.href = '/login';
         return Promise.reject(refreshError);
       } finally {

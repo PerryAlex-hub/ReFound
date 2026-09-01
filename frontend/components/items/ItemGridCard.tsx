@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { MapPin } from 'lucide-react';
 import { ItemSummaryResponse } from '@/lib/types';
 import { ItemTypeBadge } from '@/components/ui/Badge';
@@ -14,13 +15,14 @@ export function ItemGridCard({ item }: ItemGridCardProps) {
   return (
     <Link href={`/items/${item.id}`} className="block group">
       <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
-        <div className="w-full aspect-[4/3] bg-gray-100 flex items-center justify-center overflow-hidden">
+        <div className="relative w-full aspect-[4/3] bg-gray-100 flex items-center justify-center overflow-hidden">
           {item.thumbnailUrl ? (
-            <img
+            <Image
               src={item.thumbnailUrl}
               alt={item.title}
-              className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform"
-              loading="lazy"
+              fill
+              sizes="(min-width: 768px) 33vw, 100vw"
+              className="object-cover group-hover:scale-[1.03] transition-transform"
             />
           ) : (
             <CategoryLucideIcon category={item.category} size={36} className="text-gray-300" />

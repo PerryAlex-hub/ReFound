@@ -13,6 +13,7 @@ import { CategoryPicker } from '@/components/items/CategoryIcon';
 import { PhotoUploader } from '@/components/items/PhotoUploader';
 import { createItem, uploadPhoto } from '@/lib/api/items';
 import { toast } from '@/components/ui/Toast';
+import { scrollToFirstError } from '@/lib/scrollToError';
 import { ItemType } from '@/lib/types';
 import { AxiosError } from 'axios';
 
@@ -71,7 +72,7 @@ export default function NewItemPage({ searchParams }: { searchParams: Promise<{ 
     <div className="flex flex-col min-h-screen">
       <TopBar title={isLost ? 'Report Lost Item' : 'Report Found Item'} />
 
-      <form onSubmit={handleSubmit(onSubmit)} className="flex-1 px-4 pb-6 flex flex-col gap-5">
+      <form onSubmit={handleSubmit(onSubmit, (errs) => scrollToFirstError(errs))} className="flex-1 px-4 pb-6 flex flex-col gap-5">
 
         {!isLost && (
           <PhotoUploader

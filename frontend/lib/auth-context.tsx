@@ -65,6 +65,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('rf_refresh');
     delete apiClient.defaults.headers.common['Authorization'];
     setUser(null);
+    // Hard redirect, not router.push — clears the SWR cache and any other
+    // in-memory state a router-only navigation would leave stale after logout.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
     window.location.href = '/login';
   }, []);
 

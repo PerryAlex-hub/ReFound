@@ -2,6 +2,7 @@
 
 import { Camera, X } from 'lucide-react';
 import { useRef } from 'react';
+import Image from 'next/image';
 import { ItemPhotoResponse } from '@/lib/types';
 
 interface PhotoUploaderProps {
@@ -34,7 +35,7 @@ export function PhotoUploader({
       <div className="flex gap-2 flex-wrap">
         {photos.map((p) => (
           <div key={p.id} className="relative w-20 h-20 rounded-xl overflow-hidden border border-gray-200">
-            <img src={p.url} alt="" className="w-full h-full object-cover" />
+            <Image src={p.url} alt="" fill sizes="80px" className="object-cover" />
             {onRemovePhoto && (
               <button
                 type="button"
@@ -48,6 +49,8 @@ export function PhotoUploader({
         ))}
         {pendingFiles.map((f, i) => (
           <div key={i} className="relative w-20 h-20 rounded-xl overflow-hidden border border-[#F97316]/40 bg-[#FFF7ED]">
+            {/* A local blob: URL, not a remote image — next/image's optimizer can't fetch it, so a plain <img> is correct here. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={URL.createObjectURL(f)} alt="" className="w-full h-full object-cover" />
             {onRemovePending && (
               <button

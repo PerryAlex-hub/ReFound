@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
 import { toast } from '@/components/ui/Toast';
+import { scrollToFirstError } from '@/lib/scrollToError';
 import { AxiosError } from 'axios';
 
 const schema = z.object({
@@ -80,7 +81,7 @@ function RegisterForm() {
       <h1 className="reg-el text-2xl font-extrabold text-[#111827] mb-1">Create Account</h1>
       <p className="reg-el text-sm text-gray-500 mb-6">Join ReFound to start tracking campus items</p>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+      <form onSubmit={handleSubmit(onSubmit, (errs) => scrollToFirstError(errs))} className="flex flex-col gap-4">
         <div className="reg-el">
           <Input label="Full Name" placeholder="Orlando Diggs" icon={<User size={16} />}
             autoComplete="name" error={errors.fullName?.message} {...register('fullName')} />

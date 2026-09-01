@@ -11,6 +11,7 @@ import { ItemTableRow } from '@/components/items/ItemTableRow';
 import { ListSkeleton, Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Pagination } from '@/components/ui/Pagination';
+import { PillToggle } from '@/components/ui/PillToggle';
 import { ItemType } from '@/lib/types';
 import { Button } from '@/components/ui/Button';
 import Link from 'next/link';
@@ -85,18 +86,12 @@ export default function MyItemsPage() {
       </div>
 
       {/* Mobile: pill toggle */}
-      <div className="flex md:hidden bg-white rounded-2xl p-1 border border-gray-100 mb-5 shadow-sm">
-        {(['LOST', 'FOUND'] as ItemType[]).map((t) => (
-          <button
-            key={t}
-            onClick={() => handleTabChange(t)}
-            className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${
-              activeType === t ? 'bg-[#F97316] text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            {t === 'LOST' ? 'Lost' : 'Found'}
-          </button>
-        ))}
+      <div className="md:hidden mb-5">
+        <PillToggle
+          options={[{ value: 'LOST', label: 'Lost' }, { value: 'FOUND', label: 'Found' }]}
+          value={activeType}
+          onChange={(t) => handleTabChange(t as ItemType)}
+        />
       </div>
 
       {/* Mobile: card list */}

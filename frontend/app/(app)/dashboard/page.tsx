@@ -12,6 +12,8 @@ import { getUnreadCount } from '@/lib/api/notifications';
 import { ItemCard } from '@/components/items/ItemCard';
 import { ListSkeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { PillToggle } from '@/components/ui/PillToggle';
+import { useRotatingPlaceholder } from '@/lib/hooks/useRotatingPlaceholder';
 import { getGreeting, getFirstName } from '@/lib/utils';
 import { Category, ItemType } from '@/lib/types';
 import { CategoryChips } from '@/components/browse/CategoryChips';
@@ -32,10 +34,20 @@ export default function DashboardPage() {
   const [activeCategory, setActiveCategory] = useState<Category | ''>(() => filtersFromParams(searchParams).category);
   const [searchQ, setSearchQ] = useState(() => filtersFromParams(searchParams).q);
   const [location, setLocation] = useState(() => filtersFromParams(searchParams).location);
-  const [dateFrom, setDateFrom] = useState(() => filtersFromParams(searchParams).dateFrom);
-  const [dateTo, setDateTo] = useState(() => filtersFromParams(searchParams).dateTo);
+  // Date range is only ever set via /search's "Apply Filters" (a cross-route
+  // navigation that remounts this page), so there's no local setter to wire up here.
+  const [dateFrom] = useState(() => filtersFromParams(searchParams).dateFrom);
+  const [dateTo] = useState(() => filtersFromParams(searchParams).dateTo);
   const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
   const cardsRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useRotatingPlaceholder(searchInputRef, [
+    'Search for AirPods Pro...',
+    'Search for a leather wallet...',
+    'Search for dorm keys...',
+    'Search for a water bottle...',
+  ]);
 
   // The API has no dedicated "location" text param, so fold it into the full-text query
   // alongside keywords (the mobile search bar itself is labelled "items, locations...").
@@ -109,8 +121,8 @@ export default function DashboardPage() {
         <div className="relative flex items-center mb-5">
           <Search size={16} className="absolute left-4 text-gray-400 pointer-events-none" />
           <input
+            ref={searchInputRef}
             type="text"
-            placeholder="Search for items, locations..."
             value={searchQ}
             onChange={(e) => setSearchQ(e.target.value)}
             className="w-full pl-10 pr-12 py-3 bg-white border border-gray-200 rounded-2xl text-sm outline-none focus:border-[#F97316] focus:ring-2 focus:ring-[#F97316]/10 transition-all"
@@ -125,19 +137,12 @@ export default function DashboardPage() {
           </button>
         </div>
 
-        <div className="flex bg-white rounded-2xl p-1 border border-gray-100 mb-5 shadow-sm">
-          {(['LOST', 'FOUND'] as ItemType[]).map((t) => (
-            <button
-              key={t}
-              onClick={() => setActiveType(t)}
-              className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${
-                activeType === t ? 'bg-[#F97316] text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              {t === 'LOST' ? 'Lost' : 'Found'}
-            </button>
-          ))}
-        </div>
+        <PillToggle
+          className="mb-5"
+          options={[{ value: 'LOST', label: 'Lost' }, { value: 'FOUND', label: 'Found' }]}
+          value={activeType || 'LOST'}
+          onChange={(t) => setActiveType(t as ItemType)}
+        />
 
         <div className="mb-5">
           <p className="text-sm font-bold text-[#111827] mb-3">Categories</p>
