@@ -1,7 +1,7 @@
 'use client';
 
-import { use } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -11,11 +11,13 @@ import { TopBar } from '@/components/layout/TopBar';
 import { Textarea, Select } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { createClaim } from '@/lib/api/claims';
 import { getItem, getMyItems } from '@/lib/api/items';
 import { toast } from '@/components/ui/Toast';
 import { formatOccurredOn } from '@/lib/utils';
 import { CategoryLucideIcon } from '@/components/items/CategoryIcon';
+import { PackageSearch } from 'lucide-react';
 import { AxiosError } from 'axios';
 
 const schema = z.object({
@@ -25,8 +27,21 @@ const schema = z.object({
 });
 type FormData = z.infer<typeof schema>;
 
-export default function NewClaimPage({ searchParams }: { searchParams: Promise<{ foundItemId?: string }> }) {
-  const { foundItemId } = use(searchParams);
+export default function NewClaimPage() {
+  // useSearchParams(), not the `searchParams` page prop: under Next 16 the prop
+  // yields nothing in a Client Component, so foundItemId was undefined. The
+  // item header silently disappeared and the only symptom was "No item
+  // specified" after the whole form had been filled in.
+  return (
+    <Suspense fallback={null}>
+      <NewClaimForm />
+    </Suspense>
+  );
+}
+
+function NewClaimForm() {
+  const searchParams = useSearchParams();
+  const foundItemId = searchParams.get('foundItemId') ?? undefined;
   const router = useRouter();
 
   const { data: foundItem, isLoading: loadingItem } = useSWR(
@@ -35,9 +50,13 @@ export default function NewClaimPage({ searchParams }: { searchParams: Promise<{
     { revalidateOnFocus: false }
   );
 
-  const { data: myLostItems } = useSWR(
-    'my-lost-items',
-    () => getMyItems({ type: 'LOST', size: 50 }),
+  // GET /items/mine takes no `type` filter, so everything is fetched and
+  // narrowed here. Without this the dropdown offered FOUND reports as well, and
+  // choosing one was rejected by the API ("the linked report must be a lost
+  // report").
+  const { data: myItems } = useSWR(
+    'my-items-for-claim',
+    () => getMyItems({ size: 100 }),
     { revalidateOnFocus: false }
   );
 
@@ -64,10 +83,31 @@ export default function NewClaimPage({ searchParams }: { searchParams: Promise<{
     }
   };
 
-  const lostOptions = myLostItems?.content.map((i) => ({
-    value: i.id,
-    label: `${i.title} — ${formatOccurredOn(i.occurredOn)}`,
-  })) ?? [];
+  const lostOptions = (myItems?.content ?? [])
+    .filter((i) => i.type === 'LOST')
+    .map((i) => ({
+      value: i.id,
+      label: `${i.title} — ${formatOccurredOn(i.occurredOn)}`,
+    }));
+
+  // Reached without ?foundItemId — bail out visibly rather than letting someone
+  // fill in the entire form and only then be told there is no item. Placed
+  // after every hook so the hook order stays stable.
+  if (!foundItemId) {
+    return (
+      <div className="flex flex-col min-h-screen">
+        <TopBar title="Claim Item" />
+        <div className="flex-1 px-4 py-10">
+          <EmptyState
+            icon={<PackageSearch size={24} />}
+            title="No item selected"
+            description="Open the found item you want to claim and use the Claim button there."
+            action={<Button onClick={() => router.push('/search')}>Browse found items</Button>}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col min-h-screen">

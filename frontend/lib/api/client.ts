@@ -13,6 +13,11 @@ export const apiClient = axios.create({
 let slowToastShown = false;
 let slowTimer: ReturnType<typeof setTimeout> | null = null;
 
+// Counted rather than a single flag: several requests are usually in flight at
+// once, and with one shared timer the first response to return cancelled the
+// warning for all the others still waiting.
+let pendingRequests = 0;
+
 function showSlowToast() {
   if (typeof window === 'undefined') return;
   const event = new CustomEvent('rf:toast', {
@@ -34,15 +39,42 @@ apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
     config.headers['Authorization'] = `Bearer ${token}`;
   }
 
-  if (!slowToastShown) {
+  pendingRequests += 1;
+  if (pendingRequests === 1 && !slowTimer && !slowToastShown) {
     slowTimer = setTimeout(() => {
       showSlowToast();
       slowToastShown = true;
+      slowTimer = null;
     }, 8000);
   }
 
   return config;
 });
+
+/** Clears the warning only once nothing is still waiting. */
+function settleRequest() {
+  pendingRequests = Math.max(0, pendingRequests - 1);
+  if (pendingRequests > 0) return;
+
+  if (slowTimer) {
+    clearTimeout(slowTimer);
+    slowTimer = null;
+  }
+  if (slowToastShown) {
+    dismissSlowToast();
+    slowToastShown = false;
+  }
+}
+
+// A 401 from /auth/** is an answer, not an expired session: a wrong password,
+// or a refresh token that has been revoked. Running the refresh-and-retry path
+// on those meant a failed login cleared storage and hard-redirected to /login
+// before the page could show "Incorrect email or password" — the form appeared
+// to reload for no reason.
+function isAuthEndpoint(url: string | undefined): boolean {
+  if (!url) return false;
+  return url.startsWith('/auth/') || url.includes('/api/auth/');
+}
 
 let isRefreshing = false;
 let failedQueue: Array<{ resolve: (token: string) => void; reject: (err: unknown) => void }> = [];
@@ -57,17 +89,19 @@ function processQueue(error: unknown, token: string | null) {
 
 apiClient.interceptors.response.use(
   (response) => {
-    if (slowTimer) { clearTimeout(slowTimer); slowTimer = null; }
-    if (slowToastShown) { dismissSlowToast(); slowToastShown = false; }
+    settleRequest();
     return response;
   },
   async (error: AxiosError) => {
-    if (slowTimer) { clearTimeout(slowTimer); slowTimer = null; }
-    if (slowToastShown) { dismissSlowToast(); slowToastShown = false; }
+    settleRequest();
 
     const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean };
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      !isAuthEndpoint(originalRequest.url)
+    ) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({

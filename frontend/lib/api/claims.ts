@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import { ClaimDetailResponse, ClaimStatus, ClaimSummaryResponse, PageResponse } from '../types';
+import { ClaimDetailResponse, ClaimSummaryResponse, PageResponse } from '../types';
 
 export async function createClaim(data: {
   foundItemId: string;
@@ -11,7 +11,9 @@ export async function createClaim(data: {
   return res.data;
 }
 
-export async function getMyClaims(query: { status?: ClaimStatus; page?: number; size?: number } = {}): Promise<PageResponse<ClaimSummaryResponse>> {
+// No `status` parameter: GET /claims/mine does not support one. Filter the
+// returned page client-side, or add the parameter to the API first.
+export async function getMyClaims(query: { page?: number; size?: number } = {}): Promise<PageResponse<ClaimSummaryResponse>> {
   const res = await apiClient.get<PageResponse<ClaimSummaryResponse>>('/claims/mine', { params: query });
   return res.data;
 }

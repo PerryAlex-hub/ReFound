@@ -22,7 +22,13 @@ export async function getItems(query: ItemsQuery = {}): Promise<PageResponse<Ite
   return res.data;
 }
 
-export async function getMyItems(query: ItemsQuery = {}): Promise<PageResponse<ItemSummaryResponse>> {
+/**
+ * The caller's own reports.
+ *
+ * Note: GET /items/mine ignores every filter except paging — `type`, `status`
+ * and the rest apply only to GET /items. Narrow the result client-side.
+ */
+export async function getMyItems(query: Pick<ItemsQuery, 'page' | 'size' | 'sort'> = {}): Promise<PageResponse<ItemSummaryResponse>> {
   const res = await apiClient.get<PageResponse<ItemSummaryResponse>>('/items/mine', { params: query });
   return res.data;
 }

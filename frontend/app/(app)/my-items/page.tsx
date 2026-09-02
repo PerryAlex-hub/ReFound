@@ -5,7 +5,6 @@ import { Archive } from 'lucide-react';
 import useSWR from 'swr';
 import gsap from 'gsap';
 import { getMyItems } from '@/lib/api/items';
-import { useAccumulatedPages } from '@/lib/hooks/useAccumulatedPages';
 import { ItemCard } from '@/components/items/ItemCard';
 import { ItemTableRow } from '@/components/items/ItemTableRow';
 import { ListSkeleton, Skeleton } from '@/components/ui/Skeleton';
@@ -22,54 +21,57 @@ export default function MyItemsPage() {
   const [activeType, setActiveType] = useState<ItemType>('LOST');
   const cardsRef = useRef<HTMLDivElement>(null);
 
-  // Desktop: numbered pagination, one page shown at a time (replace on click).
+  // GET /items/mine takes no `type` filter, so splitting by tab has to happen
+  // here. Previously both tabs issued the same request and therefore showed the
+  // same list, and the two count-only fetches both reported the grand total.
+  //
+  // One request for everything, then filtered and paged client-side. Safe at
+  // this scale: these are one student's own reports, not the whole campus.
+  const PAGE_SIZE = 20;
   const [page, setPage] = useState(0);
-  const { data, isLoading } = useSWR(
-    ['my-items', activeType, page],
-    () => getMyItems({ type: activeType, page, size: 20 }),
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
+  const { data: allData, isLoading } = useSWR(
+    'my-items-all',
+    () => getMyItems({ size: 200 }),
     { revalidateOnFocus: false }
   );
+
+  const allItems = allData?.content ?? [];
+  const counts: Record<ItemType, number> = {
+    LOST: allItems.filter((i) => i.type === 'LOST').length,
+    FOUND: allItems.filter((i) => i.type === 'FOUND').length,
+  };
+
+  const filtered = allItems.filter((i) => i.type === activeType);
+
+  // Desktop: numbered pagination, one page shown at a time.
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pageItems = filtered.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
 
   // Mobile: "Load More" grows the list instead of replacing it.
-  const mobile = useAccumulatedPages(
-    ['my-items-infinite', activeType],
-    (pageIndex) => getMyItems({ type: activeType, page: pageIndex, size: 20 }),
-  );
-
-  // Lightweight count-only fetches so both tab labels can show totals regardless of which tab is active.
-  const { data: lostCountData } = useSWR(
-    ['my-items-count', 'LOST'],
-    () => getMyItems({ type: 'LOST', size: 1 }),
-    { revalidateOnFocus: false }
-  );
-  const { data: foundCountData } = useSWR(
-    ['my-items-count', 'FOUND'],
-    () => getMyItems({ type: 'FOUND', size: 1 }),
-    { revalidateOnFocus: false }
-  );
-  const counts: Record<ItemType, number> = {
-    LOST: lostCountData?.totalElements ?? 0,
-    FOUND: foundCountData?.totalElements ?? 0,
-  };
+  const mobileItems = filtered.slice(0, visibleCount);
+  const hasMore = visibleCount < filtered.length;
+  const loadMore = () => setVisibleCount((c) => c + PAGE_SIZE);
 
   useEffect(() => {
     // Guard on length too — gsap.from() against a selector that matches nothing (the
     // empty-state render has no .my-item-card elements) logs a console warning. Only
     // animate the initial load, not items appended by "Load More" (they'd re-flash
     // cards already on screen).
-    if (!mobile.isLoadingInitial && mobile.items.length > 0) {
+    if (!isLoading && mobileItems.length > 0) {
       const ctx = gsap.context(() => {
         gsap.from('.my-item-card', { opacity: 0, y: 16, stagger: 0.07, duration: 0.4, ease: 'power2.out' });
       });
       return () => ctx.revert();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only the initial-load transition should replay this
-  }, [mobile.isLoadingInitial, activeType]);
+  }, [isLoading, activeType]);
 
   const handleTabChange = (t: ItemType) => {
     setActiveType(t);
     setPage(0);
-    mobile.reset();
+    setVisibleCount(PAGE_SIZE);
   };
 
   return (
@@ -96,9 +98,9 @@ export default function MyItemsPage() {
 
       {/* Mobile: card list */}
       <div ref={cardsRef} className="md:hidden flex flex-col gap-3">
-        {mobile.isLoadingInitial ? (
+        {isLoading ? (
           <ListSkeleton count={4} />
-        ) : mobile.items.length === 0 ? (
+        ) : mobileItems.length === 0 ? (
           <EmptyState
             icon={<Archive size={24} />}
             title={`No ${activeType.toLowerCase()} reports`}
@@ -110,7 +112,7 @@ export default function MyItemsPage() {
             }
           />
         ) : (
-          mobile.items.map((item) => (
+          mobileItems.map((item) => (
             <div key={item.id} className="my-item-card">
               <ItemCard item={item} showType showStatus />
             </div>
@@ -118,9 +120,9 @@ export default function MyItemsPage() {
         )}
       </div>
 
-      {mobile.hasMore && (
+      {hasMore && (
         <div className="mt-4 md:hidden">
-          <Button variant="secondary" fullWidth onClick={mobile.loadMore} loading={mobile.isLoadingMore}>
+          <Button variant="secondary" fullWidth onClick={loadMore}>
             Load More
           </Button>
         </div>
@@ -161,7 +163,7 @@ export default function MyItemsPage() {
               ))}
             </tbody>
           </table>
-        ) : data?.content.length === 0 ? (
+        ) : pageItems.length === 0 ? (
           <div className="py-4">
             <EmptyState
               icon={<Archive size={24} />}
@@ -186,7 +188,7 @@ export default function MyItemsPage() {
               </tr>
             </thead>
             <tbody>
-              {data?.content.map((item) => (
+              {pageItems.map((item) => (
                 <ItemTableRow key={item.id} item={item} />
               ))}
             </tbody>
@@ -194,9 +196,9 @@ export default function MyItemsPage() {
         )}
       </div>
 
-      {data && data.totalPages > 1 && (
+      {totalPages > 1 && (
         <div className="hidden md:block mt-4">
-          <Pagination page={data.page} totalPages={data.totalPages} onChange={setPage} />
+          <Pagination page={page} totalPages={totalPages} onChange={setPage} />
         </div>
       )}
     </div>

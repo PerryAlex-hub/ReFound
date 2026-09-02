@@ -46,7 +46,12 @@ export default function ItemDetailPage({ params }: { params: Promise<{ id: strin
     </div>
   );
 
-  const canClaim = !item.viewerIsReporter && (item.status === 'OPEN' || item.status === 'CLAIM_PENDING');
+  // Only FOUND items can be claimed — the API rejects a claim on a lost report
+  // outright, so offering the button on one just sends people into a 422.
+  const canClaim =
+    item.type === 'FOUND' &&
+    !item.viewerIsReporter &&
+    (item.status === 'OPEN' || item.status === 'CLAIM_PENDING');
 
   const handleCancel = async () => {
     setCancelling(true);
