@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Search, SlidersHorizontal, Bell } from 'lucide-react';
+import { Search, SlidersHorizontal, Bell, Sparkles, ChevronRight } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import gsap from 'gsap';
 import useSWR from 'swr';
@@ -21,11 +21,13 @@ import { FilterSidebar } from '@/components/browse/FilterSidebar';
 import { SortControl, SortOrder } from '@/components/browse/SortControl';
 import { BrowseGrid, BrowseGridSkeleton } from '@/components/browse/BrowseGrid';
 import { filtersFromParams, filtersToParams } from '@/components/browse/filterParams';
+import { useMatchCount } from '@/lib/hooks/useMatchCount';
 
 export default function DashboardPage() {
   const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { count: matchCount } = useMatchCount();
 
   // Lazy-initialized from the URL so both the initial load and returning here from
   // /search's "Apply Filters" (a cross-route navigation that remounts this page) pick up
@@ -115,6 +117,29 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Suggested matches — the strongest feature in the app, and previously
+          unreachable: /matches had no link anywhere in the UI. Shown on both
+          layouts because the mobile bottom nav has no free slot. */}
+      {matchCount > 0 && (
+        <Link
+          href="/matches"
+          className="flex items-center gap-3 mb-5 p-4 rounded-2xl bg-[#FFF7ED] border border-[#FED7AA] hover:border-[#F97316] transition-colors"
+        >
+          <div className="w-10 h-10 rounded-xl bg-[#F97316] flex items-center justify-center shrink-0">
+            <Sparkles size={18} className="text-white" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-[#111827]">
+              {matchCount} possible {matchCount === 1 ? 'match' : 'matches'} for your lost {matchCount === 1 ? 'item' : 'items'}
+            </p>
+            <p className="text-xs text-gray-600">
+              We compared your reports against everything handed in. Take a look.
+            </p>
+          </div>
+          <ChevronRight size={18} className="text-[#F97316] shrink-0" />
+        </Link>
+      )}
 
       {/* Mobile browse controls */}
       <div className="md:hidden">

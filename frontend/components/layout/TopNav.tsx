@@ -7,11 +7,15 @@ import { Bell, Search, ChevronDown } from 'lucide-react';
 import useSWR from 'swr';
 import { useAuth } from '@/lib/auth-context';
 import { getUnreadCount } from '@/lib/api/notifications';
+import { useMatchCount } from '@/lib/hooks/useMatchCount';
 import { getInitials, getFirstName } from '@/lib/utils';
 
 const NAV_LINKS = [
   { href: '/dashboard', label: 'Browse' },
   { href: '/my-items', label: 'My Items' },
+  // Automatic suggestions are the point of the system, so they get a top-level
+  // entry rather than being buried — the page existed with nothing linking to it.
+  { href: '/matches', label: 'Matches' },
   { href: '/claims', label: 'My Claims' },
 ];
 
@@ -63,6 +67,7 @@ export function TopNav() {
   const pathname = usePathname();
   const { user } = useAuth();
   const { data: unread } = useSWR('unread-count', getUnreadCount, { refreshInterval: 30000 });
+  const { count: matchCount } = useMatchCount();
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/');
   const links = user?.role === 'ADMIN' ? [...NAV_LINKS, { href: '/admin', label: 'Admin' }] : NAV_LINKS;
@@ -81,8 +86,13 @@ export function TopNav() {
           <Link href="/dashboard" className={navLinkClass(isActive('/dashboard'))}>Browse</Link>
           <ReportNavItem active={pathname.startsWith('/items/new')} />
           {links.slice(1).map(({ href, label }) => (
-            <Link key={href} href={href} className={navLinkClass(isActive(href))}>
+            <Link key={href} href={href} className={`${navLinkClass(isActive(href))} gap-1.5`}>
               {label}
+              {href === '/matches' && matchCount > 0 && (
+                <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-[#F97316] text-white text-[10px] font-bold flex items-center justify-center">
+                  {matchCount}
+                </span>
+              )}
             </Link>
           ))}
         </nav>
